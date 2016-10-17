@@ -4,13 +4,12 @@
  * and open the template in the editor.
  */
 package sharefinder;
-import static com.sun.xml.internal.ws.util.VersionUtil.compare;
 import java.util.Scanner;
-import java.lang.Object;
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.PrintWriter;
-import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  *
@@ -21,12 +20,10 @@ public class ShareFinder {
     /**
      * @param args the command line arguments
      */
-    //static String outFile[][] = new String[100000][7];//0share 1type 2path 3host 4owner 5port 6manager
-    //static String inFile[][][] = new String[3][30000][20];//0 shares, 1 servers, 2Permission
     
     public static void main(String[] args) throws Exception {
         // TODO code application logic here
-        String[] fileNames = new String[3];
+        String[] fileNames = new String[4];
         //System.out.println("here0");
         fileNames[0] = "C:\\Users\\admmk0\\Documents\\shares.csv";//getFileName("Shares");//
         //System.out.println("here1"+fileNames[0]);
@@ -34,39 +31,19 @@ public class ShareFinder {
         //System.out.println("here2"+fileNames[1]);
         fileNames[2] = "C:\\Users\\admmk0\\Documents\\permissions.csv";//getFileName("Permissions");//
         //System.out.println("here3"+fileNames[2]);
+        fileNames[3] = "C:\\Users\\admmk0\\Documents\\cifsPer.csv";//getFileName("cifsPer");//
         String[][] shares = readFile(fileNames[0]);
         //System.out.println("here4");
         String[][] servers = readFile(fileNames[1]);
        // System.out.println("here5");
         String[][] permissions =  readFile(fileNames[2]);
+        String[][] cifs =  readFile(fileNames[3]);
         //System.out.println("here6");
         
-        menu(shares,servers,permissions);
-        /**
-        //for(int i = 0; i <shares.length;i++)
-       // System.out.println(shares[i][0]);
-        //System.out.println("HI!" +servers[190][0]);
-        String[][] outFile = theMagic(shares,servers,permissions);
-        //System.out.println("here7");
-        String dedup = getProcess("DeDuplicator");
-        if(dedup.equals("y")){
-        String[][] dedoopFile = removeDup(outFile);
-        //System.out.println("here8");
-        String reduce = getProcess("Data Reducer");
-        if(reduce.equals("y")){
-            String[][] reduceFile = dataReduce(dedoopFile);
-            writeFile(reduceFile);
-        }
-        else
-        writeFile(dedoopFile);
-        }        
-        else
-            writeFile(outFile);
-        //displayFile(outFile);
-        */
+        menu(shares,servers,permissions,cifs);
+
     }
-    
-    public static void menu(String[][] shares, String[][] servers, String[][] permissions) throws Exception{
+    public static void menu(String[][] shares, String[][] servers, String[][] permissions,String[][] cifs) throws Exception{
         boolean repeat = true;
         do{
         System.out.println("What do you want to do?");
@@ -74,31 +51,61 @@ public class ShareFinder {
         System.out.println("2: Compile and remove duplicates");
         System.out.println("3: Summarize");
         System.out.println("4: Compile/remove duplicates/add in all other not found");
+        System.out.println("5: Compile/remove duplicates/add CIFS");
+        System.out.println("6: Compile/remove duplicates/remove Managment Systems");
         System.out.print("Please choose a number:");
         Scanner lineInPut = new Scanner(System.in);
         String inPut = lineInPut.nextLine();
         String[][] file = new String[50000][8];
+        long start;
+        long end;
         switch(inPut){
             case "1":
                 System.out.println("\nWorking...");
-                 file = theMagic(shares,servers,permissions);
+                start = System.currentTimeMillis();
+                file = theMagic(shares,servers,permissions);
+                end = System.currentTimeMillis();
+                System.out.println(end-start);
                 break;
             case "2":
                 System.out.println("\nWorking...");
+                start = System.currentTimeMillis();
                 file = theMagic(shares,servers,permissions);
-                file = removeDup(file);
+                file = removeDup(file,3);
+                end = System.currentTimeMillis();
+                System.out.println(end-start);
                 break;
             case "3":
                 System.out.println("\nWorking...");
+                start = System.currentTimeMillis();
                 file = theMagic(shares,servers,permissions);
-                file = removeDup(file);
+                file = removeDup(file,3);
                 file = dataReduce(file);
+                end = System.currentTimeMillis();
+                System.out.println(end-start);
                 break;
             case "4":
+                System.out.println("Coming Soon");
+                break;
+            case "5":
                 System.out.println("\nWorking...");
+                start = System.currentTimeMillis();
                 file = theMagic(shares,servers,permissions);
-                file = removeDup(file);
-                file = addNotFound(file,shares);
+                file = removeDup(file, 3);
+                file = dataReduce(file);
+                file = addCifs(file,cifs);
+                file[1][0]="Please see Mitchell Kelly for Add Solution Manager";
+                end = System.currentTimeMillis();
+                System.out.println(end-start);
+            case "6":
+                System.out.println("\nWorking...");
+                start = System.currentTimeMillis();
+                file = theMagic(shares,servers,permissions);
+                file = removeDup(file,3);
+                file = dataReduce(file);
+                file = removeTheMan(file);
+                end = System.currentTimeMillis();
+                System.out.println(end-start);
                 break;
         }
         writeDisplay(file);
@@ -111,7 +118,6 @@ public class ShareFinder {
             System.out.println("\n\nAll progress may be lost!");
         }while(repeat);
     }
-    
     public static void writeDisplay(String[][] in) throws Exception{
         System.out.print("Do you want to save your file or display on screen (w/d):");
         Scanner lineInPut = new Scanner(System.in);
@@ -128,14 +134,12 @@ public class ShareFinder {
         }
                 
     }
-    
     public static String getProcess(String in){
         Scanner systemInScanner = new Scanner(System.in);
         System.out.printf("Do you want to run the "+ in +" (y/n):");
         String deDup =systemInScanner.nextLine().toLowerCase();
         return deDup;
     }
-    
     public static String getFileName(String fileType){
         Scanner systemInScanner = new Scanner(System.in);
         System.out.printf("Please enter the file name for " + fileType + ":");
@@ -157,11 +161,9 @@ public class ShareFinder {
             }
             if(fileReader.hasNextLine()){
                 inFile[i] = fileReader.nextLine().split(",");
-               
             }
             else
                 break;
-            
         }
         fileReader.close();
         return inFile;
@@ -195,21 +197,114 @@ public class ShareFinder {
         System.out.println("File Writen");
 
     }
+    public static String[][] addCifs(String[][] inFile, String[][] inFileCifs){
+        //System.out.println("here6.1.1");
+        //System.out.println(in1[196][0]);
+        int size = (int)((inFile.length + inFileCifs.length));
+        String[][] array = new String[size][8];
+        int lineNumber = 0;
+        boolean found= false;
+        //System.out.println("here6.1.2");
+        for(int i = 1;i<inFileCifs.length;i++){//shares
+           found = false;
+            for(int j = 1; j<inFile.length;j++){//permission 
+                if(!(inFile[j][0] == null || inFileCifs[i][1] == null)){
+                    //System.out.println("here6.1.3 '"+inFile[j][0]+"' '"+ inFileCifs[i][1]+"'");
+                if(inFile[j][0].equals(inFileCifs[i][1])){
+                    array[lineNumber][0] = inFile[j][0]; //share name
+                    array[lineNumber][1] = inFile[j][2]; //share path
+                    array[lineNumber][2] = inFileCifs[i][2]; //share user name
+                    array[lineNumber][3] = inFileCifs[i][4]; //permission level
+                    for(int g = 4; g <8;g++)
+                        array[lineNumber][g] = inFile[j][g];  //existing list 2nd half
+                   
+                    array[lineNumber][3] = inFileCifs[i][4];   //host name
+                    lineNumber++;
+                    found = true;
+                    //System.out.println("here6.1.4 "+lineNumber +" " + i + " " +j +inFile[j][0] + inFileCifs[i][1]);
+                   // System.out.println(array[lineNumber-1][0]+array[lineNumber-1][1]+array[lineNumber-1][2]+array[lineNumber-1][3]);
+                }
+                }
+            }
+            if(!found){
+                  array[lineNumber][0] = inFileCifs[i][1]; //share name
+                  array[lineNumber][1] = inFileCifs[i][0]; //share path
+                  array[lineNumber][2] = inFileCifs[i][2]; //share user name
+                  array[lineNumber][3] = inFileCifs[i][4]; //permission level 
+                  array[lineNumber][4] = "Not Found";
+                  //System.out.println("here6.1.5");
+                  lineNumber++;
+                }
+        }
+        array = removeDup(array, 2);
+        return array;
+    }
+    public static String[][] removeDup(String[][] outFile,int outIndex){
+        //for each share see if host name has a repeating pattern
+        String[][] finalFile = new String[outFile.length][outFile[0].length];
+        //int sharePointer = 0;
+        String currentShare = "";//blank share
+        Set<String> repeatingHost = new TreeSet<>();
+        //System.out.println("here7.1"+ outFile[outFile.length-1][0]);
+        for(int i = 0;i<outFile.length-1;i++){       //goes through all data entries in current set
+            //System.out.println(i);
+            if(outFile[i][0].equals(currentShare)){//if same share
+                //System.out.println(i+"here7.2");
+                boolean foundHost = false;//will allow quicker execution by allowing skipping rest of excecution once system is found.
+                //check for host
+                    if(outFile[i][outIndex]==null||outFile[i][outIndex] =="Null"){
+                        outFile[i][outIndex]="Not Found";//remove null values and replace with Not Found
+                    }
+                    if(repeatingHost.contains(outFile[i][outIndex])||outFile[i][outIndex].equals("-")){
+                            foundHost = true;//set host found skip next if
+                    }
+                    //System.out.println(t+ " " +repeatingHost);
+                if(!foundHost){//if host not found
+                    for(int t = 0; t<repeatingHost.size();t++){
+                        repeatingHost.add(outFile[i][outIndex]);//and new host to list
+                        for(int g = 0;g < outFile[i].length;g++){//copy rest of Unique line
+                            finalFile[i][g] = outFile[i][g];
+                        }
+                        //System.out.println("here7.6 '"+ outFile[i][3] +"' '"+ repeatingHost + "' " + t + " " + outFile[i][0]);
+                        break;
+                    }
+                }
+            }
+            else{//if not the same share
+                //System.out.println("here7.3");
+                //sharePointer = i;
+                currentShare = outFile[i][0];//update to new share
+                repeatingHost.removeAll(repeatingHost);//reset list
+                repeatingHost.add(outFile[i][outIndex]);//add first host to list
+                for(int g = 0;g < outFile[i].length;g++){//copy rest of Unique line
+                            finalFile[i][g] = outFile[i][g];
+                        }
+            }
+            if(outFile[i+1][0] == null){//if null move to a not null valuse
+                for(i+=2;i<outFile.length;i++)
+                    if(outFile[i][0] != null){
+                        break;
+                    }
+                i--;//back up to line up with new value
+            }
+        }
+        return finalFile;
+    }
     public static String[][] addNotFound(String[][] inFile, String[][] shares){
         String[][] out = new String[inFile.length][inFile[0].length];
         int t=0;
         boolean found = false;
-        for(int i = 0;i<shares.length;i++){//go through every share
+        for(int i = 0;i<shares.length-1;i++){//go through every share
             found = false;
             for(int m = 0;m<inFile.length;m++){//compare with inFile
-                System.out.println("here" + i);
-                if(shares[i][0].equals(inFile[m])){//if share found in list
+                //System.out.println("here" + i);
+                if(shares[i][0].equals(inFile[m][0])){//if share found in list
                     for(int g = 0; g < inFile[m].length;g++){//copy inFile version
                         out[t][g] = inFile[m][g];
                         t++;
                         found = true;//mark as found
                     }
-                    System.out.println("here" + m);
+                    //System.out.println("here" + m);
                     break;//exit inFile loop
                 }
             }
@@ -217,94 +312,18 @@ public class ShareFinder {
                 out[t][0] = shares[i][0];  //share name
                 out[t][1] = shares[i][1];  //share type
                 out[t][2] = shares[i][4];  //share path
+                out[t][3] = "Not Found";   //host not found
                 t++;
+            }
+            if(shares[i+1][0] == null){//if encounter null advance to finish
+                for(i+=2;i<shares.length;i++)
+                    if(shares[i][0] != null){//if you find a non null
+                        break;//continue for loop 
+                    }
             }
         }
         
         return out;
-    }
-    
-    //remove all the Not Founds
-    //0share 1type 2path 3host 4owner 5port 6manager
-    public static String[][] removeDup(String[][] outFile){
-        //for each share see if host name has a repeating pattern
-        String[][] finalFile = new String[outFile.length][outFile[0].length];
-        //int sharePointer = 0;
-        String currentShare = "";
-        String[] repeatingHost = new String[350];
-        //System.out.println("here7.1"+ outFile[outFile.length-1][0]);
-        for(int i = 0;i<outFile.length-1;i++){
-            //System.out.println(i);
-            if(outFile[i][0].equals(currentShare)){//if same share
-                //System.out.println(i+"here7.2");
-                boolean foundHost = false;
-                for(int t = 0; t<repeatingHost.length;t++){//check all hosts
-                    if(outFile[i][3].equals(repeatingHost[t])||outFile[i][3].equals("-")){
-                            foundHost = true;
-                            break;
-                    }
-                    /**
-                    if(outFile[i][3]==repeatingHost[t]|| outFile[i][3].equals("-")){//if the same
-                        //System.out.println(i+repeatingHost[t]);
-                        /**for(int g = 0;g < outFile[i].length;g++){//void you the line
-                            System.out.println("out");
-                            outFile[i][g] = "-";
-                        }*//**
-                        System.out.println("here7.5 '"+ outFile[i][3] +"' '"+ repeatingHost[t] + "' " + t);
-                        break;
-                    }
-                    else if(repeatingHost[t].equals("")){//if not same and find blank
-                        //if(repeatingHost[t-1].equals(outFile[i][3]))
-                           // break;
-                        repeatingHost[t] = outFile[i][3];//and new host to list
-                        for(int g = 0;g < outFile[i].length;g++){//copy rest of Unique line
-                            finalFile[i][g] = outFile[i][g];
-                        System.out.println("here7.6 '"+ outFile[i][3] +"' '"+ repeatingHost[t] + "' " + t);
-                        
-                        }
-                        break;
-                    }*/
-                    //System.out.println(t+repeatingHost[t]);
-                }
-                if(!foundHost){
-                    for(int t = 0; t<repeatingHost.length;t++){
-                        if(repeatingHost[t].equals("")){//find blank
-                        repeatingHost[t] = outFile[i][3];//and new host to list
-                        for(int g = 0;g < outFile[i].length;g++){//copy rest of Unique line
-                            finalFile[i][g] = outFile[i][g];
-                        }
-                        //System.out.println("here7.6 '"+ outFile[i][3] +"' '"+ repeatingHost[t] + "' " + t + " " + outFile[i][0]);
-                        break;
-                        }
-                    }
-                }
-                
-            }
-            else{//if not the same share
-                //System.out.println("here7.3");
-                //sharePointer = i;
-                currentShare = outFile[i][0];
-                for(int v = 0; v<repeatingHost.length;v++){//reset all host list
-                    if(repeatingHost[v]=="")
-                        break;
-                    else
-                        repeatingHost[v]="";
-                }
-                repeatingHost[0]=outFile[i][3];//add first host to list
-                for(int g = 0;g < outFile[i].length;g++){//copy rest of Unique line
-                            finalFile[i][g] = outFile[i][g];
-                        }
-                
-            }
-            if(outFile[i+1][0] == null){
-                for(i+=2;i<outFile.length;i++)
-                    if(outFile[i][0] != null){
-                        break;
-                    }
-                i--;
-            }
-        }
-        return finalFile;
     }
     //summarize who has shares on a share
     //0share 1type 2path 3host 4owner 5port 6manager
@@ -369,107 +388,41 @@ public class ShareFinder {
         
         return outFile;
     }
-    public static String[][] array1(String[][] in, String[][] in1){
+                                    //array1       array2     indexes to output to and to read from    what the comparison index is
+    public static String[][] array(String[][] in, String[][] in1, List<Integer> indexOut, int[][] indexIn, List<Integer> compareOn, boolean sort,int lineNumber){
         //System.out.println("here6.1.1");
         //System.out.println(in1[196][0]);
-        int size = (int)((in.length + in1.length));
-        String[][] array = new String[size][4];
-        int lineNumber = 0;
+        String[][] array = new String[(in.length + in1.length)][indexOut.size()];
+        //int lineNumber = 0;
         //System.out.println("here6.1.2");
-        for(int i = 1;i<in.length;i++){//shares
-            if(in[i][1] == "*Network*"){
-             continue;   
+        for(int i = 1;i<in.length;i++){//set 1 (in) //remove any network discovered shares
+            if(sort){//if sort is enabled
+                if(in[i][compareOn.get(0)]==null)
+                    continue;
+                if(in[i][1] == "*Network*"){
+                continue;   
+                }
+                //System.out.println(in[i][0]+" "+in[i-1][0]);
+                if(in[i][compareOn.get(0)] != null)//if not null
+                    if(in[i][compareOn.get(0)].equals(in[i-1][compareOn.get(0)])&&(lineNumber>0)){//if the same as the one above(remove duplicates
+                        if(!in[i][compareOn.get(0)].equals(array[lineNumber-1][0]))//if already put in list
+                            continue;}
+                if(in[i][compareOn.get(0)].equals("-"))
+                    continue;
             }
-            //System.out.println(in[i][0]+" "+in[i-1][0]);
-            if(in[i][0] != null)
-            if(in[i][0].equals(in[i-1][0])&&(lineNumber>0)){
-                if(!in[i][0].equals(array[lineNumber-1][0]))
-                continue;}
-            /**
-             * Binary search
-             
-            String[] searchList = new String[in1.length];
-            
-            for(int y = 0; y < in1.length && (searchList[y] != null || searchList[y] != "null");y++){
-                if(in1[y][1] != null || in1[y][1] != "null")
-                    searchList[y] = in1[y][1];
-               // System.out.println(search[y]);
-            }
-            int mid = 0;
-            if(in[i][0] != null || in[i][0] != "null")
-                mid = Arrays.binarySearch(searchList,in[i][0]);
-            /**
-            int lo = 0;
-            int hi = in1.length - 1;
-            int mid = lo + (hi - lo) / 2;
-            while (lo <= hi) {
-            // Key is in a[lo..hi] or not present.
-             if(in[i][0].compareTo(in1[mid][1])<0) hi = mid - 1;
-             else if (in[i][0].compareTo(in1[mid][1])>0) lo = mid + 1;
-             else break;
-            }
-            int top = mid;
-            int bottom = mid;
-            while(in1[mid][1] == in1[top][1]){
-                top++;
-            }
-            top--;
-            while(in1[mid][1] == in1[bottom][1]){
-                bottom--;
-            }
-            bottom++;
-            
-            System.out.println(top +" "+bottom);
-            * */
-            for(int j = 1; j<in1.length;j++){//permission 
-                /**
-                 * need to add bianary search also need to verify second list is
-                 * sorted by what is searched for a-z
-                 * may need to figure out how to do it with a find first instance
-                 * and a find last then search range.
-                 * 
-                 * maybe even a a switch to use shorter list as list and longer
-                 * list as b
-                 */
-                if(!(in[i][0] == null || in1[j][1] == null)){
+            for(int j = 1; j<in1.length;j++){//set 2 (in1)
+                if(!(in[i][compareOn.get(0)] == null || in1[j][compareOn.get(1)] == null)){
                     //System.out.println("'"+in[i][0]+"' '"+ in1[j][1]+"'");
-                if(in[i][0].equals(in1[j][1])){
-                    array[lineNumber][0] = in[i][0];  //share name
-                    array[lineNumber][1] = in[i][1];  //share type
-                    array[lineNumber][2] = in[i][4];  //share path
-                    array[lineNumber][3] = in1[j][4];   //host name
+                if(in[i][compareOn.get(0)].equals(in1[j][compareOn.get(1)])){
+                    for(int v = 0; v < indexOut.size();v++){
+                        if(indexIn[v][0]==0)
+                            array[lineNumber][indexOut.get(v)] = in[i][indexIn[v][1]];
+                        else
+                            array[lineNumber][indexOut.get(v)] = in1[j][indexIn[v][1]];
+                    }
                     lineNumber++;
-                   // System.out.println("1 "+lineNumber +" " + i + " " +j +in[i][0] + in1[j][1]);
+                    //System.out.println("1 "+lineNumber +" " + i + " " +j + "__"+in[i][compareOn.get(0)] + "___" + in1[j][compareOn.get(1)]);
                    // System.out.println(array[lineNumber-1][0]+array[lineNumber-1][1]+array[lineNumber-1][2]+array[lineNumber-1][3]);
-                }}
-            }
-        }
-        return array;
-    }
-    public static String[][] array2(String[][] in, String[][] in1){
-        //System.out.println("here6.2.1");
-        //System.out.println(in[196][0]);
-        //System.out.println(in1[5][4]);
-        int size = (int)((in.length + in1.length));
-        String[][] array = new String[size][4];
-        int lineNumber = 0;
-        //System.out.println("here6.2.2");
-        for(int i = 1;i<in.length;i++){//shares
-            //System.out.println(i+" "+in.length);
-            for(int j = 1; j<in1.length;j++){//permission 
-               // System.out.println("2 "+j+" "+in1.length);
-               //System.out.println(in[i][0] +" "+in1[j][4]+" "+i+" "+j);
-                if(!(in[i][0] == null || in1[j][4] == null)){
-                    //System.out.println(i+" '"+in[i][0]+"' '"+ in1[j][4]+"'");
-                if(in[i][0].equals(in1[j][4])){
-                    //System.out.println(i +" "+j);
-                    array[lineNumber][0] = in1[j][4];   //host name
-                    array[lineNumber][1] = in[i][4]; //owner
-                    array[lineNumber][2] = in[i][5]; //portfolio
-                    array[lineNumber][3] = in[i][6]; //solution manager
-                    lineNumber++;
-                    //System.out.println("1 "+lineNumber +" " + i + " " +j +in[i][0] + in1[j][4]);
-                    //System.out.println(array[lineNumber-1][0]+array[lineNumber-1][1]+array[lineNumber-1][2]+array[lineNumber-1][3]);
                 }}
             }
         }
@@ -499,22 +452,32 @@ public class ShareFinder {
         }
         return out;
     }
-    
     //0share 1type 2path 3host 4owner 5port 6manager
     public static String[][] theMagic(String[][] shares,String[][] servers, String[][] permissions){
-        
+        //array(String[][] in, String[][] in1, int[] indexOut, int[][] indexIn, int[] compareOn, boolean sort)
         //System.out.println("here6.1");
-        /**
-        for(int i = 0; i <shares.length;i++)
-        System.out.println(shares[i][0]);
-        for(int i = 0; i <permissions.length;i++)
-        System.out.println(permissions[i][0]);
-        */
-        String[][] sharePer = array1(shares,permissions);
+        LinkedList<Integer> indexOut = new LinkedList<>();
+        indexOut.add(0);indexOut.add(1);indexOut.add(2);indexOut.add(3);
+        int[][] indexIn = {{0,0},{0,1},{0,4},{1,4}};
+        LinkedList<Integer> compare = new LinkedList<>();
+        compare.add(0);
+        compare.add(1);
+        String[][] sharePer = array(shares, permissions, indexOut, indexIn, compare, true, 0);//array1(shares,permissions);//
         //System.out.println("HI" +servers[190][0]);
-        String[][] perServer = array2(servers,permissions);
+        //indexOut = {0,1,2,3};
+        int[][] indexIn1 = {{1,4},{0,4},{0,5},{0,6}};
+        compare.remove(1);
+        compare.add(4);
+        //
+        String[][] perServer = array(servers, permissions, indexOut, indexIn1, compare, false, 0);//array2(servers,permissions);//
        // System.out.println("here6.3");
-        String[][] outFile = merge(sharePer, perServer);
+       //indexOut.add(4);indexOut.add(5);indexOut.add(6);
+       //int[][] indexIn2 = {{0,0},{0,1},{0,2},{0,3},{1,1},{1,2},{1,3}};
+       //compare.remove(1);
+       //compare.add(0,3);
+       //System.out.println(compare.get(1));
+       //System.out.println(compare.get(0));
+        String[][] outFile = merge(sharePer, perServer);//array(sharePer, perServer, indexOut, indexIn2, compare, true, 1);//
         //System.out.println("here6.4");
         
         outFile[0][0] = "Share Name";  //share name
@@ -526,40 +489,22 @@ public class ShareFinder {
         outFile[0][6] = "Solution Manager"; //solution manager
     
         return outFile;
-        /**for(int shareLine = 1;shareLine < inFile[0].length;shareLine++){
-    if(inFile[0][shareLine][1] == "Network*"){}//do nothing
-    else{
-    for(int permLine = 1;permLine < inFile[2].length;permLine++){
-        if(inFile[0][shareLine][0] == inFile[2][permLine][1]){ //Find every instance of the share in the permission sheet
-            for(int serverLine = 1;serverLine < inFile[1].length;serverLine++){
-                if(inFile[2][permLine][4] == inFile[1][serverLine][0]){ //Find every instance of the host name in the server sheet
-                //display all records found with the share
-                    outFile[recordLine][0] = inFile[0][shareLine][0];  //share name
-                    outFile[recordLine][1] = inFile[0][shareLine][1];  //share type
-                    outFile[recordLine][2] = inFile[0][shareLine][4];  //share path
-                    outFile[recordLine][3] = inFile[2][permLine][4];   //host name
-                    outFile[recordLine][4] = inFile[1][serverLine][4]; //owner
-                    outFile[recordLine][5] = inFile[1][serverLine][5]; //portfolio
-                    outFile[recordLine][6] = inFile[1][serverLine][6]; //solution manager
-                    recordLine++;
+        
+            }  
+    public static String[][] removeTheMan(String[][] file) {
+        String[][] out = new String[file.length][file[0].length];
+        int line = 0;
+        for(int i = 0; i < file.length;i++){
+            if(file[i][6] != null)
+            if(file[i][6].equals("Steve Royce") || file[i][6].equals("Bruce Jensen"))
+                continue;
+            else{
+                for(int j = 0; j < file[i].length;j++){
+                    out[line][j] = file[i][j];
                 }
-              /** else{
-                        
-                    outFile[recordLine][0] = inFile[0][shareLine][0];  //share name
-                    outFile[recordLine][1] = inFile[0][shareLine][1];  //share type
-                    outFile[recordLine][2] = inFile[0][shareLine][4];  //share path
-                    outFile[recordLine][3] = inFile[2][permLine][4];   //host name
-                    outFile[recordLine][4] = "NOT FOUND"; //cannot find host
-                    recordLine++;
-                }*/
+                line++;
             }
-       /** else{
-                outFile[recordLine][0] = inFile[0][shareLine][0];  //share name
-                outFile[recordLine][1] = inFile[0][shareLine][1];  //share type
-                outFile[recordLine][2] = inFile[0][shareLine][4];  //share path
-                outFile[recordLine][3] = "NOT FOUND"; //cannot find share
-                recordLine++;
-        }*/
+        }
+        return out;
     }
-    // }}}
-//}}
+    }
