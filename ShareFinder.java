@@ -8,7 +8,9 @@ import java.util.Scanner;
 import java.io.File;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
 /**
@@ -85,18 +87,25 @@ public class ShareFinder {
                 System.out.println(end-start);
                 break;
             case "4":
-                System.out.println("Coming Soon");
+                System.out.println("\nWorking...");
+                start = System.currentTimeMillis();
+                file = theMagic(shares,servers,permissions);
+                file = removeDup(file,3);
+                file = addNotFound(file, shares);
+                end = System.currentTimeMillis();
+                System.out.println(end-start);
                 break;
             case "5":
                 System.out.println("\nWorking...");
                 start = System.currentTimeMillis();
                 file = theMagic(shares,servers,permissions);
                 file = removeDup(file, 3);
-                file = dataReduce(file);
+                //file = dataReduce(file);
                 file = addCifs(file,cifs);
                 file[1][0]="Please see Mitchell Kelly for Add Solution Manager";
                 end = System.currentTimeMillis();
                 System.out.println(end-start);
+                break;
             case "6":
                 System.out.println("\nWorking...");
                 start = System.currentTimeMillis();
@@ -184,7 +193,7 @@ public class ShareFinder {
         java.io.File fileOut = new java.io.File("C:\\Users\\admmk0\\Documents\\outPut.csv");
         java.io.PrintWriter output = new java.io.PrintWriter(fileOut);
         for(int i = 0; i <= outFile.length-1;i++){
-            if(outFile[i] == null||outFile[i][0]=="-")
+            if(outFile[i] == null||outFile[i][0]=="-"||outFile[i].equals("null"))
                 continue;
             if(!(outFile[i][0]==null)){
             for(int j = 0; j <= outFile[i].length-1; j++){                
@@ -205,9 +214,9 @@ public class ShareFinder {
         int lineNumber = 0;
         boolean found= false;
         //System.out.println("here6.1.2");
-        for(int i = 1;i<inFileCifs.length;i++){//shares
-           found = false;
-            for(int j = 1; j<inFile.length;j++){//permission 
+        for(int i = 1;i<inFileCifs.length;i++){
+           found = false;//if Cifs found in inFile
+            for(int j = 1; j<inFile.length;j++){
                 if(!(inFile[j][0] == null || inFileCifs[i][1] == null)){
                     //System.out.println("here6.1.3 '"+inFile[j][0]+"' '"+ inFileCifs[i][1]+"'");
                 if(inFile[j][0].equals(inFileCifs[i][1])){
@@ -215,7 +224,7 @@ public class ShareFinder {
                     array[lineNumber][1] = inFile[j][2]; //share path
                     array[lineNumber][2] = inFileCifs[i][2]; //share user name
                     array[lineNumber][3] = inFileCifs[i][4]; //permission level
-                    for(int g = 4; g <8;g++)
+                    for(int g = 4; g < inFile[j].length;g++)
                         array[lineNumber][g] = inFile[j][g];  //existing list 2nd half
                    
                     array[lineNumber][3] = inFileCifs[i][4];   //host name
@@ -235,6 +244,13 @@ public class ShareFinder {
                   //System.out.println("here6.1.5");
                   lineNumber++;
                 }
+            array[0][0] = "Share Name";  //share name
+            array[0][1] = "Share Type";  //share type
+            array[0][2] = "Share Path";  //share path
+            array[0][3] = "Host Name";   //host name
+            array[0][4] = "Owner";       //owner
+            array[0][5] = "Portfolio";   //portfolio
+            array[0][6] = "Solution Manager"; //solution manager
         }
         array = removeDup(array, 2);
         return array;
@@ -275,7 +291,12 @@ public class ShareFinder {
                 //sharePointer = i;
                 currentShare = outFile[i][0];//update to new share
                 repeatingHost.removeAll(repeatingHost);//reset list
-                repeatingHost.add(outFile[i][outIndex]);//add first host to list
+                if(outFile[i][0] == null){//if null move to a not null valuse
+                for(i++;i<outFile.length;i++)
+                    if(outFile[i][0] != null){
+                        repeatingHost.add(outFile[i][outIndex]);//add first host to list
+                    }
+                }
                 for(int g = 0;g < outFile[i].length;g++){//copy rest of Unique line
                             finalFile[i][g] = outFile[i][g];
                         }
@@ -293,21 +314,36 @@ public class ShareFinder {
     public static String[][] addNotFound(String[][] inFile, String[][] shares){
         String[][] out = new String[inFile.length][inFile[0].length];
         int t=0;
-        boolean found = false;
+        boolean found;
         for(int i = 0;i<shares.length-1;i++){//go through every share
             found = false;
+            
+            if(shares[i+1][0] == null){//if encounter null advance to nonNull or finish
+                for(i+=2;i<shares.length;i++)
+                    if(shares[i][0] != null){//if you find a non null
+                        break;//continue main for loop 
+                    }
+                continue;
+            }
+            //System.out.println(i + " " + shares.length);
+            if(shares[i][1].equals("Network")||shares[i][1].equals("Network Shared")||
+                        ((shares[i][0].contains(":/")||shares[i][0].contains("//"))&&shares[i][0] != null&&i<shares.length)){
+                continue;
+            }
+            //System.out.println("1here" + i);
             for(int m = 0;m<inFile.length;m++){//compare with inFile
                 //System.out.println("here" + i);
-                if(shares[i][0].equals(inFile[m][0])){//if share found in list
+                if(shares[i][0] == inFile[m][0]){//if share found in list
                     for(int g = 0; g < inFile[m].length;g++){//copy inFile version
                         out[t][g] = inFile[m][g];
-                        t++;
-                        found = true;//mark as found
-                    }
+                        }
+                    t++;
+                    found = true;//mark as found
                     //System.out.println("here" + m);
-                    break;//exit inFile loop
+                    //break;//exit inFile loop
                 }
             }
+            //System.out.println("2here" + i);
             if(!found){//if share is not found
                 out[t][0] = shares[i][0];  //share name
                 out[t][1] = shares[i][1];  //share type
@@ -315,14 +351,8 @@ public class ShareFinder {
                 out[t][3] = "Not Found";   //host not found
                 t++;
             }
-            if(shares[i+1][0] == null){//if encounter null advance to finish
-                for(i+=2;i<shares.length;i++)
-                    if(shares[i][0] != null){//if you find a non null
-                        break;//continue for loop 
-                    }
-            }
         }
-        
+        out = removeDup(out,3);
         return out;
     }
     //summarize who has shares on a share
@@ -330,52 +360,39 @@ public class ShareFinder {
     public static String[][] dataReduce(String[][] inFile){
         String[][] outFile = new String[inFile.length][inFile[0].length+1];
         String currentShare = "";
-        String[][] portfolio = new String[50][inFile[0].length+1];//portfolio line +count
-        for(int t = 0;t<inFile[0].length;t++){
+        Map<String,Integer> portfolio = new TreeMap<>();//protfolio name and count
+        for(int t = 0;t<inFile[0].length;t++){//copies first line
             outFile[0][t] = inFile[0][t];
             outFile[0][7] = "Share Count";
         }
         int m = 1;
         for(int i = 0;i<inFile.length-1;i++){
-            //System.out.print(inFile[i][0] + " " + currentShare);
+            System.out.println(inFile[i][0] + " " + currentShare);
             if(inFile[i][0].equals(currentShare)){//if same share
-                //System.out.println(i);
-                boolean foundPort = false;
-                for(int j = 0;j<portfolio.length;j++){//compare portfolios
-                    if(inFile[i][5].equals(portfolio[j][5])){                
-                        portfolio[j][7]=(Integer.parseInt(portfolio[j][7])+1)+"";//increase count of portfolio on share
-                        foundPort = true;//wont make a duplicate portfolio
-                        break;
+                System.out.println(i);
+                if(portfolio.containsKey(inFile[i][5])){                
+                        portfolio.put(inFile[i][5], portfolio.get(inFile[i][5]) +1);//increase count of portfolio on share
+                        //foundPort = true;//wont make a duplicate portfolio
+                        System.out.println("here");
                     }
-                }
-                if(!foundPort){//if it isnt found add portfolio to list
-                    for(int t = 0;t<portfolio.length;t++){
-                        if(portfolio[t][0].equals("")||portfolio[t][0].equals(null)){
-                            for(int g = 0;g < inFile[i].length;g++){
-                                portfolio[t][g] = inFile[i][g];
-                            }
-                            portfolio[t][7]="1"; // add portfolio count of 1 to end of list
-                            break;
-                        }
+                else{ //if it isnt found add portfolio to list
+                    for(int g = 0;g < inFile[i].length;g++){
+                        outFile[m][g] = inFile[i][g];
                     }
-                    
+                    m++;
+                    portfolio.put(inFile[i][5], 1); // add portfolio count of 1 to end of list
+                    System.out.println("here1");
                 }
             }
             else{//if different share
-                for(int v = 0; v<portfolio.length;v++){
-                    if(portfolio[v][0]=="")//if portfolio is already null stop resting them
-                        break;
-                    else{
-                        for(int t = 0;t<portfolio[v].length;t++){
-                            outFile[m][t] = portfolio[v][t];//copy list to final list
-                            portfolio[v][t]="";//reset to null
-                        }
-                        m++;//increase outFile line
-                    }
+                for(int t = m-1;t>0;t--){
+                    System.out.println(portfolio.get(outFile[t][5]).toString());
+                    outFile[t][7] = portfolio.get(outFile[t][5]).toString();//copy portCount to final
                 }
-                
+                 portfolio.clear();
+                portfolio.put(inFile[i][5], 1);
                 currentShare = inFile[i][0];//set new share
-                //System.out.println(currentShare +" " + inFile[i][0] +" " +i);
+                System.out.println(currentShare +" " + inFile[i][0] +" " +i + " "+ outFile[m][2]);
             }
             if(inFile[i+1][0] == null){//if encounter null advance to finish
                 for(i+=2;i<inFile.length;i++)
